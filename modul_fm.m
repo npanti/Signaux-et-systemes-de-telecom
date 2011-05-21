@@ -7,7 +7,7 @@ T = 1/F;
 Fs = 20000;         %Fréquence d'échantillonnage Matlab
 Ts = 1/Fs;
 OSF = Fs/F;
-bits_size = 5;   %Nombre de symbole émis
+bits_size = 15;   %Nombre de symbole émis
 Kf = 500;           %Sélectivité fréquentielle
 Fc = 6000;          %Fréquence porteuse
 Tc = 1/Fc;
@@ -36,7 +36,7 @@ for i=1:bits_size
 end
 
 figure(1);
-plot(msg,'-');
+plot(msg,'-', 'LineWidth', 3); hold on;
 
 %% Modulation FM
 %Es = fmmod(msg,Fc,Fs,50); ou modulate
@@ -46,7 +46,7 @@ plot(msg,'-');
 % end
 
 %Cumsum est la somme cumulée, c'est l'intégrale discrète de notre message
-e_s = exp(1i*2*pi*Kf*cumsum(msg)*Ts);
+e_s = exp(1i*2*pi*Kf*cumsum(msg));
 
 % figure(2);
 % plot(t,real(e_s),'-'); hold on;
@@ -56,26 +56,30 @@ e_s = exp(1i*2*pi*Kf*cumsum(msg)*Ts);
 
 %% Signal RF
 
-s = real(e_s).*cos(2*pi*Fc*(t-1)*1/Fs) - imag(e_s).*sin(2*pi*Fc*(t-1)*1/Fs);
+s = real(e_s).*cos(2*pi*Fc*t) - imag(e_s).*sin(2*pi*Fc*t);
 
 % figure(3);
 % plot(t,s); hold on;
 % plot(t,msg,'xg','MarkerSize',10);
 
-%s2 = fmmod(msg,Fc,Fs,Kf);
+s2 = fmmod(msg,Fc,Fs,Kf);
 
-%plot(t,s,'-or');
-% hold on;
-% plot(n(1:plt),s2(1:plt),'-xb');
+figure(2);
+plot(t,s,'-or');
+ hold on;
+plot(t,s2,'-xb');
 
 %% Bruit blanc
 
+n = zeros(1,vector_size);
+
+r = s + n;
 
 %% Filtre passe-bas
 %Optention des deux signal qui vont rentrer dans le filtre passe-bas
 
-r_cos = s.*cos(2*pi*Fc*(t-1)/Fs);
-r_sin = s.*sin(2*pi*Fc*(t-1)/Fs);
+r_cos = r.*cos(2*pi*Fc*t);
+r_sin = r.*sin(2*pi*Fc*t);
 
 
 % subplot(211); hold on;
@@ -85,7 +89,6 @@ r_sin = s.*sin(2*pi*Fc*(t-1)/Fs);
 h = rcosfir(0,20,10,1/(3*Fc));
 
 e_r = conv(r_cos,h) + 1i*conv(r_sin,h);
-
 e_r = e_r(20*10+1:vector_size+20*10);
 
 
@@ -111,11 +114,33 @@ for k=1:bits_size
     end
     
 %     if  abs(sum(e_r((k-1)*OSF+1:k*OSF).*conj(e_s0((k-1)*OSF+1:k*OSF)))) > abs(sum(e_r((k-1)*OSF+1:k*OSF).*conj(e_s1((k-1)*OSF+1:k*OSF))))
-%         m(k) = 0;
+%         m2(1,k) = 0;
 %     else
-%         m(k) = 1;
+%         m2(1,k) = 1;
 %     end
 end
+
+figure(1);
+hold on;
+
+msg = [];   %Définition de notre matrisse message = m(t)
+
+for i=1:bits_size
+   
+    bit = m(1,i);
+    if bit == 0         %Si le bit vaut 0 on écrit -1
+        bit = -1;
+    end
+    
+    bit_msg = bit;      %On duplique la valeur du bit OSF fois
+    bit_msg = repmat(bit_msg,1,OSF);
+    
+    msg = horzcat(msg,bit_msg);
+    
+end
+
+plot(msg,'-r');
+
 
 %m = abs(cumsum(e_r.*conj(e_s1))) - abs(cumsum(e_r.*conj(e_s0)));
 % for t2 = 1:size(m,2)
