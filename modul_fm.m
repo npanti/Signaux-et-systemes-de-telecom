@@ -85,7 +85,7 @@ e_r = e_r(1+10*20:longueur_chaine+20*10);
 e_s0 = exp(-1i*2*pi*Kf*t);
 e_s1 = exp(1i*2*pi*Kf*t);
 
-m = zeros(1,bits_size);
+m_FSK = zeros(1,bits_size);
 for k=1:bits_size
     
     s0_sum = 0;
@@ -97,10 +97,47 @@ for k=1:bits_size
     end
     
     if abs(s0_sum) > abs(s1_sum)
-        m(1,k) = 1;
+        m_FSK(1,k) = 1;
     else
-        m(1,k) = 0;
+        m_FSK(1,k) = 0;
     end
+end
+
+%% Démodulateur FM
+
+Bt = 2*(Kf+Fc); %largeur de bande
+a = 1/(2*pi*Kf); % valeur de la pente pour retomber sur le message d'origine
+
+% d_er = diff(e_r)./diff(t);   %derivee par rapport au temps (1x399)
+% %probleme de dimension e_r=1x400
+
+d_er = gradient(e_r,1/Fs);  %derivee par rapport au temps (1x400)
+
+% derivee calculee analytiquement
+% phi = 0;
+% d_er1 = 0.5*exp(1i*phi)*2*pi*1i*Kf.*msg.*e_s;
+
+s1 = a.*d_er+1i*pi*a*Bt.*e_r;    % apres 2 filtres a pente
+s2 = -a.*d_er+1i*pi*a*Bt.*e_r;    % apres 2 filtres a pente
+
+%m_r = abs(s2)-abs(s1);  
+
+for k=1:longueur_chaine
+    if abs (s2(k))-abs(s1(k))<0
+        m_r(k)=0;
+    else
+        m_r(k)=1;
+    end
+end
+
+%% Interprétation du message
+
+for k=1:bits_size
+    m1(k)=0;
+    for l=1:OSF
+        m1(k)=(m1(k)+m_r((k-1)*OSF+l));
+    end
+    m1(k)=round(m1(k)/OSF);
 end
 
 %% Comparaison des résultats
