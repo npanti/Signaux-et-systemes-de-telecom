@@ -1,10 +1,10 @@
 %% Initialisation
 clc;
 clear;
-plt = 50;
 
 F = 500;            %Fréquence symbole
 Fs = 20000;         %Fréquence d'échantillonnage Matlab
+Ts = 1/Fs;
 OSF = Fs/F;
 bits_size = 10;   %Nombre de symbole émis
 Kf = 500;           %Sélectivité fréquentielle
@@ -18,24 +18,22 @@ longueur_chaine = bits_size*OSF;
 bits = randi(2,1, bits_size) - 1;   %-1 pour avoir 0 ou 1 en aléatoire
 
 %% Création du message
-msg = [];   %Définition de notre matrisse message = m(t)
+msg = zeros(1,longueur_chaine);   %Définition de notre matrisse message = m(t)
 
+k=0;
 for i=1:bits_size
-   
-    bit = bits(1,i);
-    if bit == 0         %Si le bit vaut 0 on écrit -1
-        bit = -1;
+    
+    if bits(1,i) == 0
+        for j=1:OSF
+            msg(1,k+j) = -1;
+        end
+    else
+        for j=1:OSF
+            msg(1,k+j) = 1;
+        end
     end
-    
-    bit_msg = bit;      %On duplique la valeur du bit OSF fois
-    bit_msg = repmat(bit_msg,1,OSF);
-    
-    msg = horzcat(msg,bit_msg);
-    
+    k = k+OSF;
 end
-
-figure(1);
-plot(msg,'-','LineWidth',3);
 
 %% Modulation FM
 
@@ -48,17 +46,23 @@ e_s = exp(1i*2*pi*Kf*cumsum(msg)/Fs);
 s = real(e_s).*cos(2*pi*Fc*t) - imag(e_s).*sin(2*pi*Fc*t);
 
 % s2 = fmmod(msg,Fc,Fs,Kf);
-% 
-% plot(t,s,'-or');
-% hold on;
-% plot(t,s2,'-xb');
 
 %% Bruit blanc
 
-n = zeros(1, longueur_chaine);
+%Paramètre du bruit
+N0 = sum(s.^2)/(10*F*OSF);
+sigma_n = sqrt(N0*Fs/2);
+
+%Génération du bruit
+n = sigma_n*randn(1,longueur_chaine);
+
+%n = zeros(1, longueur_chaine);
 
 r = s + n;
 
+SNRc = (sum(r.^2)/longueur_chaine)/(N0*F*OSF);
+
+fprintf('SNRc = %f \n',SNRc);
 %% Filtre passe bas
 
 r_cos = r.*cos(2*pi*Fc*t);
@@ -75,6 +79,7 @@ e_r = e_r(1+10*20:longueur_chaine+20*10);
 e_s0 = exp(-1i*2*pi*Kf*t);
 e_s1 = exp(1i*2*pi*Kf*t);
 
+m = zeros(1,bits_size);
 for k=1:bits_size
     
     s0_sum = 0;
@@ -94,20 +99,36 @@ end
 
 %% Comparaison des résultats
 
-msg = [];
+figure(2);
+plot(msg,'-','LineWidth',3);
+
+msg2 = zeros(1,longueur_chaine);
+k=0;
 for i=1:bits_size
-   
-    bit = m(1,i);
-    if bit == 0         %Si le bit vaut 0 on écrit -1
-        bit = -1;
+    
+    if m(1,i) == 0
+        for j=1:OSF
+            msg2(1,k+j) = -1;
+        end
+    else
+        for j=1:OSF
+            msg2(1,k+j) = 1;
+        end
     end
-    
-    bit_msg = bit;      %On duplique la valeur du bit OSF fois
-    bit_msg = repmat(bit_msg,1,OSF);
-    
-    msg = horzcat(msg,bit_msg);
-    
+    k = k+OSF;
 end
 
 hold on;
-plot(msg,'-r');
+plot(msg2,'-r');
+
+%% Calcul de pourcentage d'erreur
+erreur = 0;
+for i=1:bits_size
+    if bits(1,i) ~= m(1,i)
+        erreur = erreur + 1;
+    end
+end
+
+pourcentage_erreur = erreur/bits_size*100;
+
+fprintf('Pourcentage d''erreur: %f %% \n Il y a %i bits erronés sur %i \n', pourcentage_erreur, erreur, bits_size);
