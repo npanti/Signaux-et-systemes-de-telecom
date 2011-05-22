@@ -6,14 +6,14 @@ F = 500;            %Fréquence symbole
 Fs = 20000;         %Fréquence d'échantillonnage Matlab
 Ts = 1/Fs;
 OSF = Fs/F;
-bits_size = 10;   %Nombre de symbole émis
+bits_size = 1000;   %Nombre de symbole émis
 Kf = 500;           %Sélectivité fréquentielle
 Fc = 6000;          %Fréquence porteuse
 
 t=0:1/Fs:OSF*bits_size*1/Fs-1/Fs;
 
 longueur_chaine = bits_size*OSF;
-
+tic();
 %% Création des bits
 bits = randi(2,1, bits_size) - 1;   %-1 pour avoir 0 ou 1 en aléatoire
 
@@ -50,15 +50,21 @@ s = real(e_s).*cos(2*pi*Fc*t) - imag(e_s).*sin(2*pi*Fc*t);
 %% Bruit blanc
 
 %Paramètre du bruit
-N0 = sum(s.^2)/(10*F*OSF);
+N0 = sum(s.^2)/(10*F*OSF*longueur_chaine);
 sigma_n = sqrt(N0*Fs/2);
 
 %Génération du bruit
 n = sigma_n*randn(1,longueur_chaine);
 
-%n = zeros(1, longueur_chaine);
+%n = zeros(1, longueur_chaine*OSF);
 
 r = s + n;
+
+% figure(1);
+% hold on;
+% %plot(t,r,'-k');
+% plot(t,s);
+% plot(t,n,'-r');
 
 SNRc = (sum(r.^2)/longueur_chaine)/(N0*F*OSF);
 
@@ -99,27 +105,27 @@ end
 
 %% Comparaison des résultats
 
-figure(2);
-plot(msg,'-','LineWidth',3);
-
-msg2 = zeros(1,longueur_chaine);
-k=0;
-for i=1:bits_size
-    
-    if m(1,i) == 0
-        for j=1:OSF
-            msg2(1,k+j) = -1;
-        end
-    else
-        for j=1:OSF
-            msg2(1,k+j) = 1;
-        end
-    end
-    k = k+OSF;
-end
-
-hold on;
-plot(msg2,'-r');
+% figure(2);
+% plot(msg,'-','LineWidth',3);
+% 
+% msg2 = zeros(1,longueur_chaine);
+% k=0;
+% for i=1:bits_size
+%     
+%     if m(1,i) == 0
+%         for j=1:OSF
+%             msg2(1,k+j) = -1;
+%         end
+%     else
+%         for j=1:OSF
+%             msg2(1,k+j) = 1;
+%         end
+%     end
+%     k = k+OSF;
+% end
+% 
+% hold on;
+% plot(msg2,'-r');
 
 %% Calcul de pourcentage d'erreur
 erreur = 0;
@@ -132,3 +138,4 @@ end
 pourcentage_erreur = erreur/bits_size*100;
 
 fprintf('Pourcentage d''erreur: %f %% \n Il y a %i bits erronés sur %i \n', pourcentage_erreur, erreur, bits_size);
+toc();
