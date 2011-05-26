@@ -1,16 +1,17 @@
+function [FOM, SNRc, SNR0] = modul_fm(F,Fs,Kf,Fc,Eb_N0)
 %% Initialisation
 
 clc;
-clear;
-
-F = 500;            %Fréquence symbole
-Fs = 20000;         %Fréquence d'échantillonnage Matlab
+%clear;
+% 
+% F = 500;            %Fréquence symbole
+% Fs = 20000;         %Fréquence d'échantillonnage Matlab
 Ts = 1/Fs;
 OSF = Fs/F;
-bits_size = 40000;   %Nombre de symbole émis
-Kf = 500;           %Sélectivité fréquentielle
-Fc = 6000;          %Fréquence porteuse
-Eb_N0 = 10;         %en db
+bits_size = 10000;   %Nombre de symbole émis
+% Kf = 250;           %Sélectivité fréquentielle
+% Fc = 6000;          %Fréquence porteuse
+% Eb_N0 = 10;         %en db
 
 t=0:1/Fs:OSF*bits_size*1/Fs-1/Fs;
 
@@ -70,6 +71,10 @@ sigma_n = sqrt(N0*Fs/2);
 n = sigma_n*randn(1,longueur_chaine);
 
 r = s + n;
+
+% figure(1);
+% plot(t,r); hold on;
+% plot(t,s,'r');
 
 %% Filtre passe bas
 
@@ -250,6 +255,8 @@ fprintf('SNRc = %.2f \nSNR0 = %.2f \nFOM = %.2f \nEb/N0 = %.0f \n',SNRc,SNR0,FOM
 [psd_e_r, f_e_r] = welch(e_r,t);
 [psd_m_rb, f_m_rb] = welch(m_r_bruit,t);
 
+figure(2);
+
 subplot(3,2,1);
 plot(f_m,psd_m);
 title('Densité spectrale de m');
@@ -277,3 +284,5 @@ clear;
 
 
 toc();
+
+end

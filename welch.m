@@ -9,7 +9,7 @@ function [psd,f] = welch(x,t)
 % - f : frequency
 
 % Gather segments in a matrix 
-L = 1024; D = 500;
+L = 512; D = 250;
 N = floor((length(x)-L)/D + 1); 
 Xt = []; 
 for nn = 1:N,
