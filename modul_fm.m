@@ -253,16 +253,27 @@ D = 500;
 
 subplot(3,2,1);
 plot(f_m,psd_m);
+title('Densité spectrale de m');
+
 subplot(3,2,2);
 plot(f_e_s,psd_e_s);
+title('Densité spectrale de Es');
+
 subplot(3,2,3);
 plot(f_s,psd_s);
+title('Densité spectrale de s');
+
 subplot(3,2,4);
 plot(f_r,psd_r);
+title('Densité spectrale de r');
+
 subplot(3,2,5);
 plot(f_e_r,psd_e_r);
+title('Densité spectrale de Er');
+
 subplot(3,2,6);
 plot(f_m_rb,psd_m_rb);
+title('Densité spectrale de Mr');
 
 
 toc();
