@@ -10,6 +10,7 @@ OSF = Fs/F;
 bits_size = 40000;   %Nombre de symbole émis
 Kf = 500;           %Sélectivité fréquentielle
 Fc = 6000;          %Fréquence porteuse
+Eb_N0 = 10;         %en db
 
 t=0:1/Fs:OSF*bits_size*1/Fs-1/Fs;
 
@@ -62,7 +63,7 @@ s = real(e_s).*cos(2*pi*Fc*t) - imag(e_s).*sin(2*pi*Fc*t);
 fprintf('Bruit Blanc\n');
 
 %Paramètre du bruit
-N0 = sum(s.^2)/(10*F*OSF*longueur_chaine);
+N0 = sum(s.^2)/(10^(Eb_N0/10)*F*OSF*longueur_chaine);
 sigma_n = sqrt(N0*Fs/2);
 
 %Génération du bruit
@@ -219,6 +220,7 @@ end
 pourcentage_erreur_fsk = erreur_FSK/bits_size*100;
 pourcentage_erreur_fm = erreur_FM/bits_size*100;
 
+clc;
 fprintf('Pourcentage d''erreur FSK: %f %% \n Il y a %i bits erronés sur %i \nPourcentage d''erreur FM: %f %% \n Il y a %i bits erronés sur %i \n', pourcentage_erreur_fsk, erreur_FSK, bits_size, pourcentage_erreur_fm, erreur_FM, bits_size);
 
 %% Calcul des différents SNRc SNRo, FOM
@@ -237,12 +239,9 @@ SNRc = 10*log10(Ps_c/Pn_c);
 SNR0 = 10*log10(Ps_0/Pn_0);
 FOM = SNR0-SNRc;
 
-fprintf('SNRc = %.2f \nSNR0 = %.2f \nFOM = %.2f \n',SNRc,SNR0,FOM);
+fprintf('SNRc = %.2f \nSNR0 = %.2f \nFOM = %.2f \nEb/N0 = %.0f \n',SNRc,SNR0,FOM, Eb_N0);
 
 %% Densité de puissance par unité de fréquence
-
-L = 1024;
-D = 500;
 
 [psd_m,f_m] = welch(msg,t);
 [psd_e_s, f_e_s] = welch(e_s,t);
@@ -274,6 +273,7 @@ title('Densité spectrale de Er');
 subplot(3,2,6);
 plot(f_m_rb,psd_m_rb);
 title('Densité spectrale de Mr');
+clear;
 
 
 toc();

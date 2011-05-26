@@ -1,4 +1,4 @@
-function [psd,f] = welch(x,t,L,D)
+function [psd,f] = welch(x,t)
 % INPUTS: 
 % - x : input signal 
 %-t: time 
