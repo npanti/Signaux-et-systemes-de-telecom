@@ -7,7 +7,7 @@ F = 500;            %Fréquence symbole
 Fs = 20000;         %Fréquence d'échantillonnage Matlab
 Ts = 1/Fs;
 OSF = Fs/F;
-bits_size = 4000;   %Nombre de symbole émis
+bits_size = 40000;   %Nombre de symbole émis
 Kf = 500;           %Sélectivité fréquentielle
 Fc = 6000;          %Fréquence porteuse
 
@@ -240,5 +240,29 @@ FOM = SNR0-SNRc;
 fprintf('SNRc = %.2f \nSNR0 = %.2f \nFOM = %.2f \n',SNRc,SNR0,FOM);
 
 %% Densité de puissance par unité de fréquence
+
+L = 1024;
+D = 500;
+
+[psd_m,f_m] = welch(msg,t);
+[psd_e_s, f_e_s] = welch(e_s,t);
+[psd_s, f_s] = welch(s,t);
+[psd_r, f_r] = welch(r,t);
+[psd_e_r, f_e_r] = welch(e_r,t);
+[psd_m_rb, f_m_rb] = welch(m_r_bruit,t);
+
+subplot(3,2,1);
+plot(f_m,psd_m);
+subplot(3,2,2);
+plot(f_e_s,psd_e_s);
+subplot(3,2,3);
+plot(f_s,psd_s);
+subplot(3,2,4);
+plot(f_r,psd_r);
+subplot(3,2,5);
+plot(f_e_r,psd_e_r);
+subplot(3,2,6);
+plot(f_m_rb,psd_m_rb);
+
 
 toc();
