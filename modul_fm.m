@@ -1,8 +1,9 @@
-function [FOM, SNRc, SNR0] = modul_fm(F,Fs,Kf,Fc,Eb_N0)
+function [FOM, SNRc, SNR0, pourcentage_erreur_fsk , pourcentage_erreur_fm] = modul_fm(F,Fs,Kf,Fc,Eb_N0)
+
 %% Initialisation
 
 clc;
-%clear;
+clear;
 % 
 % F = 500;            %Fréquence symbole
 % Fs = 20000;         %Fréquence d'échantillonnage Matlab
@@ -57,8 +58,6 @@ fprintf('Signal RF\n');
 
 s = real(e_s).*cos(2*pi*Fc*t) - imag(e_s).*sin(2*pi*Fc*t);
 
-%s = fmmod(msg,Fc,Fs,Kf);
-
 %% Bruit blanc
 
 fprintf('Bruit Blanc\n');
@@ -67,37 +66,31 @@ fprintf('Bruit Blanc\n');
 N0 = sum(s.^2)/(10^(Eb_N0/10)*F*OSF*longueur_chaine);
 sigma_n = sqrt(N0*Fs/2);
 
-%Génération du bruit
+%Génération du bruit blanc
 n = sigma_n*randn(1,longueur_chaine);
 
+%Ajout du bruit blanc à notre signal
 r = s + n;
-
-% figure(1);
-% plot(t,r); hold on;
-% plot(t,s,'r');
 
 %% Filtre passe bas
 
 fprintf('FPB\n');
 
+%Réponse impulsionnel du filtre passe bas
+h = rcosfir(0,10,20,1/(3*Fc));
+
 %Filtre appliqué juste sur le message sans bruit
 r_cos = s.*cos(2*pi*Fc*t);
 r_sin = s.*sin(2*pi*Fc*t);
 
-h = rcosfir(0,10,20,1/(3*Fc));
-
 e_r = conv(r_cos,h) + 1i*conv(r_sin,h);
-
 e_r = e_r(1+10*20:longueur_chaine+20*10);
 
 %Filtre appliqué sur le message avec bruit
 r_cos = r.*cos(2*pi*Fc*t);
 r_sin = r.*sin(2*pi*Fc*t);
 
-h = rcosfir(0,10,20,1/(3*Fc));
-
 e_r_bruit = conv(r_cos,h) + 1i*conv(r_sin,h);
-
 e_r_bruit = e_r_bruit(1+10*20:longueur_chaine+20*10);
 
 %% Démodulateur FSK
@@ -134,9 +127,6 @@ fprintf('Démodulateur FM\n');
 Bt = 2*(Kf+Fc); %largeur de bande
 a = 1/(2*pi*Kf); % valeur de la pente pour retomber sur le message d'origine
 
-% d_er = diff(e_r)./diff(t);   %derivee par rapport au temps (1x399)
-% %probleme de dimension e_r=1x400
-
 %Démodulation sur le message sans bruit
 
 d_er = gradient(e_r,1/Fs);  %derivee par rapport au temps (1x400)
@@ -172,6 +162,7 @@ end
 
 
 %% Interprétation du message
+
 fprintf('Interprétation du message après démodulation FM\n');
 
 m_fm = zeros(1,bits_size);
@@ -183,31 +174,8 @@ for k=1:bits_size
     m_fm(k)=round(m_fm(k)/OSF);
 end
 
-%% Comparaison des résultats
-
-% figure(2);
-% plot(msg,'-','LineWidth',3);
-% 
-% msg2 = zeros(1,longueur_chaine);
-% k=0;
-% for i=1:bits_size
-%     
-%     if m(1,i) == 0
-%         for j=1:OSF
-%             msg2(1,k+j) = -1;
-%         end
-%     else
-%         for j=1:OSF
-%             msg2(1,k+j) = 1;
-%         end
-%     end
-%     k = k+OSF;
-% end
-% 
-% hold on;
-% plot(msg2,'-r');
-
 %% Calcul de pourcentage d'erreur
+
 fprintf('Calcul d''erreur\n');
 
 erreur_FSK = 0;
@@ -280,8 +248,6 @@ title('Densité spectrale de Er');
 subplot(3,2,6);
 plot(f_m_rb,psd_m_rb);
 title('Densité spectrale de Mr');
-clear;
-
 
 toc();
 
