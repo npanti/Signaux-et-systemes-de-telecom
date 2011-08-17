@@ -1,107 +1,87 @@
-function [FOM, SNRc, SNR0, pourcentage_erreur_fsk , pourcentage_erreur_fm] = modul_fm(F,Fs,Kf,Fc,Eb_N0)
-
-%% Initialisation
-
 clc;
 clear;
-% 
-% F = 500;            %Fréquence symbole
-% Fs = 20000;         %Fréquence d'échantillonnage Matlab
-Ts = 1/Fs;
-OSF = Fs/F;
-bits_size = 10000;   %Nombre de symbole émis
-% Kf = 250;           %Sélectivité fréquentielle
-% Fc = 6000;          %Fréquence porteuse
-% Eb_N0 = 10;         %en db
 
-t=0:1/Fs:OSF*bits_size*1/Fs-1/Fs;
+format long;
 
-longueur_chaine = bits_size*OSF;
-tic();
+%% Initialisation
+ 
+bitsSend = 10000;    %Nombre de bits émis [1000]
+f_s = 20000;        %Fréquence d'échantillonage [20000 Hz]
+T_s = 1/f_s;        %Période d'échantillonage
+f = 500;            %Fréquence symbole [500 Hz]
+OSF = f_s/f;        %Oversampling factor [40]
+k_f = 500;          %Sélectivité fréquencielle [500 Hz]
+f_c = 6000;         %Fréquence porteuse [6000 Hz]
+t = 0:T_s:OSF*T_s*bitsSend-T_s; %Temps d'échantillonage
+phi = 0;            %Déphasage
+EbN0_ratio = 10;
 
-%% Création des bits
-
-bits = randi(2,1, bits_size) - 1;   %-1 pour avoir 0 ou 1 en aléatoire
+rate = 10;
+n_T = 40;
+bits = randi(2,1, bitsSend) - 1; %Séquence aléatoire
 
 %% Création du message
+m = ones(1,bitsSend*OSF);
 
-fprintf('Création du message\n');
-
-msg = zeros(1,longueur_chaine);   %Définition de notre matrisse message = m(t)
-
-k=0;
-for i=1:bits_size
-    
-    if bits(1,i) == 0
+k=1;
+for i=1:bitsSend
+    if bits(i) == 0
         for j=1:OSF
-            msg(1,k+j) = -1;
-        end
-    else
-        for j=1:OSF
-            msg(1,k+j) = 1;
-        end
+            m(k+j-1) = -1;
+        end   
     end
     k = k+OSF;
 end
 
 %% Modulation FM
 
-fprintf('Modulation FM\n');
+e_s = exp(1i*2*pi*k_f*cumsum(m)*T_s);
 
-%Cumsum est la somme cumulée, c'est l'intégrale discrète de notre message
-e_s = exp(1i*2*pi*Kf*cumsum(msg)/Fs);
+%% Singal RF
 
-
-%% Signal RF
-
-fprintf('Signal RF\n');
-
-s = real(e_s).*cos(2*pi*Fc*t) - imag(e_s).*sin(2*pi*Fc*t);
+s = real(e_s).*cos(2*pi*f_c*t) - imag(e_s).*sin(2*pi*f_c*t);
 
 %% Bruit blanc
 
-fprintf('Bruit Blanc\n');
+%Paramètres du bruit
+Ps = sum(s.^2)/(bitsSend*OSF);
+Eb = Ps/f;
+N0 = Eb/(10^(EbN0_ratio/10));
+sigma_n = sqrt(N0*f_s/2);
 
-%Paramètre du bruit
-N0 = sum(s.^2)/(10^(Eb_N0/10)*F*OSF*longueur_chaine);
-sigma_n = sqrt(N0*Fs/2);
+%Génération du bruit
+n = sigma_n*randn(1,bitsSend*OSF);
 
-%Génération du bruit blanc
-n = sigma_n*randn(1,longueur_chaine);
-
-%Ajout du bruit blanc à notre signal
+%Ajout du bruit
 r = s + n;
 
-%% Filtre passe bas
-
-fprintf('FPB\n');
+%% Filtre passe-bas
 
 %Réponse impulsionnel du filtre passe bas
-h = rcosfir(0,10,20,1/(3*Fc));
+h = rcosfir(0,n_T,rate,1/(3*f_c));
+enlever = (length(h)-1)/2;
 
 %Filtre appliqué juste sur le message sans bruit
-r_cos = s.*cos(2*pi*Fc*t);
-r_sin = s.*sin(2*pi*Fc*t);
+r_cos = s.*cos(2*pi*f_c*t+phi);
+r_sin = s.*sin(2*pi*f_c*t+phi);
 
 e_r = conv(r_cos,h) + 1i*conv(r_sin,h);
-e_r = e_r(1+10*20:longueur_chaine+20*10);
+e_r = e_r(1+enlever:end-enlever);
 
 %Filtre appliqué sur le message avec bruit
-r_cos = r.*cos(2*pi*Fc*t);
-r_sin = r.*sin(2*pi*Fc*t);
+r_cos = r.*cos(2*pi*f_c*t+phi);
+r_sin = r.*sin(2*pi*f_c*t+phi);
 
 e_r_bruit = conv(r_cos,h) + 1i*conv(r_sin,h);
-e_r_bruit = e_r_bruit(1+10*20:longueur_chaine+20*10);
+e_r_bruit = e_r_bruit(1+enlever:end-enlever);
 
 %% Démodulateur FSK
 
-fprintf('Démodulateur FSK\n');
+e_s0 = exp(-1i*2*pi*k_f*t);
+e_s1 = exp(1i*2*pi*k_f*t);
 
-e_s0 = exp(-1i*2*pi*Kf*t);
-e_s1 = exp(1i*2*pi*Kf*t);
-
-m_fsk = zeros(1,bits_size);
-for k=1:bits_size
+m_fsk = zeros(1,bitsSend);
+for k=1:bitsSend
     
     s0_sum = 0;
     s1_sum = 0;
@@ -112,143 +92,55 @@ for k=1:bits_size
     end
     
     if abs(s0_sum) > abs(s1_sum)
-        m_fsk(1,k) = 1;
-    else
-        m_fsk(1,k) = 0;
+        m_fsk(k) = 1;
     end
 end
-
-
 
 %% Démodulateur FM
+g = 1/(2*pi*k_f*rate);
+B_T = 2*k_f + 2*f;
 
-fprintf('Démodulateur FM\n');
+%Démodulation avec bruit
+d_er_bruit = gradient(e_r_bruit,T_s);  %derivee par rapport au temps (1x400)
 
-Bt = 2*(Kf+Fc); %largeur de bande
-a = 1/(2*pi*Kf); % valeur de la pente pour retomber sur le message d'origine
+s1 = g.*(d_er_bruit+1i*pi*B_T.*e_r_bruit);    % apres 2 filtres a pente
+s2 = g.*(-d_er_bruit+1i*pi*B_T.*e_r_bruit);    % apres 2 filtres a pente 
 
-%Démodulation sur le message sans bruit
+s_diff = abs(s2)-abs(s1);
 
-d_er = gradient(e_r,1/Fs);  %derivee par rapport au temps (1x400)
-
-s1 = a.*d_er+1i*pi*a*Bt.*e_r;    % apres 2 filtres a pente
-s2 = -a.*d_er+1i*pi*a*Bt.*e_r;    % apres 2 filtres a pente 
-
-m_r = zeros(1,longueur_chaine);
-
-for k=1:longueur_chaine
-    if abs (s2(k))-abs(s1(k))<0
-        m_r(k)=0;
-    else
-        m_r(k)=1;
+m_fm_bruit = zeros(1,bitsSend*OSF);
+for k=1:bitsSend*OSF
+    if s_diff(k) > 0
+        m_fm_bruit(k) = 1;
     end
 end
 
-%Démodulation sur le message avec bruit
-d_er_bruit = gradient(e_r_bruit,1/Fs);  %derivee par rapport au temps (1x400)
-
-s1 = a.*d_er_bruit+1i*pi*a*Bt.*e_r_bruit;    % apres 2 filtres a pente
-s2 = -a.*d_er_bruit+1i*pi*a*Bt.*e_r_bruit;    % apres 2 filtres a pente 
-
-m_r_bruit = zeros(1,longueur_chaine);
-
-for k=1:longueur_chaine
-    if abs (s2(k))-abs(s1(k))<0
-        m_r_bruit(k)=0;
-    else
-        m_r_bruit(k)=1;
-    end
-end
-
-
-%% Interprétation du message
-
-fprintf('Interprétation du message après démodulation FM\n');
-
-m_fm = zeros(1,bits_size);
-for k=1:bits_size
+% Interprétation du message avec bruit
+m_fm_final = zeros(1,bitsSend);
+for k=1:bitsSend
 
     for l=1:OSF
-        m_fm(k)=(m_fm(k)+m_r_bruit((k-1)*OSF+l));
+        m_fm_final(k) = m_fm_final(k) + m_fm_bruit((k-1)*OSF+l);
     end
-    m_fm(k)=round(m_fm(k)/OSF);
+    m_fm_final(k) = round(m_fm_final(k)/OSF);
 end
 
-%% Calcul de pourcentage d'erreur
+%% BER
 
-fprintf('Calcul d''erreur\n');
-
-erreur_FSK = 0;
-erreur_FM = 0;
-for i=1:bits_size
-    if bits(1,i) ~= m_fsk(1,i)
-        erreur_FSK = erreur_FSK + 1;
-    end
-    
-    if bits(1,i) ~= m_fm(1,i)
-        erreur_FM = erreur_FM + 1;
-    end
+incorrectBits = 0;
+for k=1:bitsSend
+   if(m_fm_final(k) ~= bits(k))
+       incorrectBits = incorrectBits + 1;
+   end
 end
 
-pourcentage_erreur_fsk = erreur_FSK/bits_size*100;
-pourcentage_erreur_fm = erreur_FM/bits_size*100;
+BER_FM = incorrectBits/bitsSend;
 
-clc;
-fprintf('Pourcentage d''erreur FSK: %f %% \n Il y a %i bits erronés sur %i \nPourcentage d''erreur FM: %f %% \n Il y a %i bits erronés sur %i \n', pourcentage_erreur_fsk, erreur_FSK, bits_size, pourcentage_erreur_fm, erreur_FM, bits_size);
-
-%% Calcul des différents SNRc SNRo, FOM
-
-fprintf('Calcul de SNRc, SNRo et FOM\n');
-
-%Puissance d'un bit avant démodulation
-Ps_c = sum(r.^2)/longueur_chaine;
-Pn_c = (N0*F*OSF)/2;
-
-%Puissance d'un bit après démodulation
-Ps_0 = sum(m_r_bruit.^2)/longueur_chaine;
-Pn_0 = sum((m_r_bruit-m_r).^2)/longueur_chaine;
-
-SNRc = 10*log10(Ps_c/Pn_c);
-SNR0 = 10*log10(Ps_0/Pn_0);
-FOM = SNR0-SNRc;
-
-fprintf('SNRc = %.2f \nSNR0 = %.2f \nFOM = %.2f \nEb/N0 = %.0f \n',SNRc,SNR0,FOM, Eb_N0);
-
-%% Densité de puissance par unité de fréquence
-
-[psd_m,f_m] = welch(msg,t);
-[psd_e_s, f_e_s] = welch(e_s,t);
-[psd_s, f_s] = welch(s,t);
-[psd_r, f_r] = welch(r,t);
-[psd_e_r, f_e_r] = welch(e_r,t);
-[psd_m_rb, f_m_rb] = welch(m_r_bruit,t);
-
-figure(2);
-
-subplot(3,2,1);
-plot(f_m,psd_m);
-title('Densité spectrale de m');
-
-subplot(3,2,2);
-plot(f_e_s,psd_e_s);
-title('Densité spectrale de Es');
-
-subplot(3,2,3);
-plot(f_s,psd_s);
-title('Densité spectrale de s');
-
-subplot(3,2,4);
-plot(f_r,psd_r);
-title('Densité spectrale de r');
-
-subplot(3,2,5);
-plot(f_e_r,psd_e_r);
-title('Densité spectrale de Er');
-
-subplot(3,2,6);
-plot(f_m_rb,psd_m_rb);
-title('Densité spectrale de Mr');
-
-toc();
-
+incorrectBits = 0;
+for k=1:bitsSend
+   if(m_fsk(k) ~= bits(k))
+       incorrectBits = incorrectBits + 1;
+   end
 end
+
+BER_FSK = incorrectBits/bitsSend;
